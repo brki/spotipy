@@ -62,3 +62,6 @@ If you have suggestions, bugs or other issues specific to this library, file the
 - v1.310, August 20, 2014 -- Added playlist replace and remove methods. Added auth tests. Improved API docs
 - v2.0 - August 22, 2014 -- Upgraded APIs and docs to make it be a real library
 - v2.0.2 - August 25, 2014 -- Moved to spotipy at pypi
+- v2.1.0 - October 25, 2014 -- Added support for new_releases and featured_playlists
+- v2.2.0 - November 15, 2014 -- Added support for user_playlist_tracks
+- v2.3.0 - January 5, 2015 -- Added session support added by akx. 

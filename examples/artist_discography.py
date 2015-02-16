@@ -20,7 +20,8 @@ def show_album_tracks(album):
         results = sp.next(results)
         tracks.extend(results['items'])
     for track in tracks:
-        print('  ', track['name'])
+        print('  ', track['name'], "\n")
+        print track
 
 def show_artist_albums(id):
     albums = []

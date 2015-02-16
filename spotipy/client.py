@@ -38,20 +38,31 @@ class Spotify(object):
             print(user)
     '''
 
-    trace = False 
-    """enable tracing"""
+    trace = False  # Enable tracing?
 
-    _auth = None
-    
-    def __init__(self, auth=None):
+    def __init__(self, auth=None, requests_session=True):
         '''
-           creates a spotify object
+        Create a Spotify API object.
 
-           Parameters:
-                - auth - the optional authorization token 
+        :param auth: An authorization token (optional)
+        :param requests_session:
+            A Requests session object or a truthy value to create one.
+            A falsy value disables sessions.
+            It should generally be a good idea to keep sessions enabled
+            for performance reasons (connection pooling).
+
         '''
         self.prefix = 'https://api.spotify.com/v1/'
         self._auth = auth
+
+        if isinstance(requests_session, requests.Session):
+            self._session = requests_session
+        else:
+            if requests_session:  # Build a new session.
+                self._session = requests.Session()
+            else:  # Use the Requests API module as a "session".
+                from requests import api
+                self._session = api
 
     def _auth_headers(self):
         if self._auth:
@@ -67,13 +78,11 @@ class Spotify(object):
         headers['Content-Type'] = 'application/json'
 
         if payload:
-            r = requests.request(method, url, headers=headers, 
-                data=json.dumps(payload), **args)
-        else:
-            r = requests.request(method, url, headers=headers, **args)
-        # close the socket
-        r.connection.close()
-        if self.trace:
+            args["data"] = json.dumps(payload)
+
+        r = self._session.request(method, url, headers=headers, **args)
+
+        if self.trace:  # pragma: no cover
             print()
             print(method, r.url)
             if payload:
@@ -86,7 +95,7 @@ class Spotify(object):
                 -1, '%s:\n %s' % (r.url, r.json()['error']['message']))
         if len(r.text) > 0:
             results = r.json()
-            if self.trace:
+            if self.trace:  # pragma: no cover
                 print('RESP', results)
                 print()
             return results
@@ -280,7 +289,6 @@ class Spotify(object):
 
     def user_playlist(self, user, playlist_id = None, fields=None):
         ''' Gets playlist of a user
-
             Parameters:
                 - user - the id of the user
                 - playlist_id - the id of the playlist
@@ -289,8 +297,22 @@ class Spotify(object):
         if playlist_id == None:
             return self._get("users/%s/starred" % (user), fields=fields)
         plid = self._get_id('playlist', playlist_id)
-        return self._get("users/%s/playlists/%s" % (user, plid), 
-                    fields=fields)
+        return self._get("users/%s/playlists/%s" % (user, plid), fields=fields)
+
+    def user_playlist_tracks(self, user, playlist_id = None, fields=None, 
+        limit=100, offset=0):
+        ''' Get full details of the tracks of a playlist owned by a user.
+
+            Parameters:
+                - user - the id of the user
+                - playlist_id - the id of the playlist
+                - fields - which fields to return
+                - limit - the maximum number of tracks to return
+                - offset - the index of the first track to return
+        '''
+        plid = self._get_id('playlist', playlist_id)
+        return self._get("users/%s/playlists/%s/tracks" % (user, plid), 
+                    limit=limit, offset=offset, fields=fields)
 
     def user_playlist_create(self, user, name, public=True):
         ''' Creates a playlist for a user
@@ -333,24 +355,27 @@ class Spotify(object):
                 payload = payload)
 
     def user_playlist_remove_all_occurrences_of_tracks(self, user, playlist_id, 
-                        tracks):
+                        tracks, snapshot_id=None):
         ''' Removes all occurrences of the given tracks from the given playlist
 
             Parameters:
                 - user - the id of the user
                 - playlist_id - the id of the playlist
                 - tracks - the list of track ids to add to the playlist
+                - snapshot_id - optional id of the playlist snapshot
 
         '''
 
         plid = self._get_id('playlist', playlist_id)
         ftracks = [ self._get_uri('track', tid) for tid in tracks]
         payload = { "tracks": [ {"uri": track} for track in ftracks] }
+        if snapshot_id:
+            payload["snapshot_id"] = snapshot_id
         return self._delete("users/%s/playlists/%s/tracks" % (user, plid), 
                 payload = payload)
 
     def user_playlist_remove_specific_occurrences_of_tracks(self, user, 
-            playlist_id, tracks):
+            playlist_id, tracks, snapshot_id=None):
         ''' Removes all occurrences of the given tracks from the given playlist
 
             Parameters:
@@ -359,11 +384,19 @@ class Spotify(object):
                 - tracks - an array of objects containing Spotify URIs of the tracks to remove with their current positions in the playlist.  For example: 
                     [  { "uri":"4iV5W9uYEdYUVa79Axb7Rh", "positions":[2] },
                        { "uri":"1301WleyT98MSxVHPZCA6M", "positions":[7] } ] 
+                - snapshot_id - optional id of the playlist snapshot
         '''
 
         plid = self._get_id('playlist', playlist_id)
-        ftracks = [ self._get_uri('track', tid) for tid in tracks]
+        ftracks = []
+        for tr in tracks:
+            ftracks.append({
+                "uri": self._get_uri("track", tr["uri"]),
+                "positions": tr["positions"],
+            })
         payload = { "tracks": ftracks }
+        if snapshot_id:
+            payload["snapshot_id"] = snapshot_id
         return self._delete("users/%s/playlists/%s/tracks" % (user, plid), 
                 payload = payload)
 
