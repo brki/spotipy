@@ -81,6 +81,7 @@ class Spotify(object):
             args["data"] = json.dumps(payload)
 
         r = self._session.request(method, url, headers=headers, **args)
+        r.connection.close()
 
         if self.trace:  # pragma: no cover
             print()
